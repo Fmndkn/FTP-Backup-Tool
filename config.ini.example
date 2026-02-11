@@ -1,0 +1,18 @@
+[FTP]
+server = ftp.example.com
+username = your_username
+password = your_password
+remote_dir = /backups/
+
+[LOCAL]
+source_dir = /path/to/backup/source
+
+[SETTINGS]
+max_copies = 5
+upload_retries = 3
+
+[LOGGING]
+level = INFO
+log_file = log/backup.log
+max_size_mb = 10
+backup_count = 10

@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs
+log/*.log
+log/*.log.gz
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Config files with secrets
+config.ini
+secrets.ini
+.env
+.env.local
+.env.*.local
+
+# Backup files
+*.tar
+*.tar.*
+/tmp/
+/temp/
+
+# Cron log
+cron.log
+
+# Ignore example files (they should be copied)
+!config.ini.example
+!.ftpignore.example
