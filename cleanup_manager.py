@@ -1,37 +1,34 @@
 # cleanup_manager.py
 import os
 import logging
+from .errors import BackupErrorCodes
+
 
 class CleanupManager:
     def __init__(self, logger=None):
         self.logger = logger or logging.getLogger(self.__class__.__name__)
 
     def cleanup_local(self, path, max_copies):
-        """Удаляет старые локальные резервные копии, оставляя только max_copies."""
+        """Удаляет старые локальные резервные копии."""
+        if not os.path.isdir(path):
+            self.logger.error(f"Локальная папка для очистки не найдена: {path}",
+                              extra={"error_code": BackupErrorCodes.LOCAL_DIR_NOT_FOUND})
+            return
+
         try:
             files = sorted(
                 os.listdir(path),
                 key=lambda x: os.path.getmtime(os.path.join(path, x))
             )
+            if len(files) <= max_copies:
+                self.logger.debug(f"Локальная очистка не требуется. Копий: {len(files)}, лимит: {max_copies}")
+                return
+
             for f in files[:-max_copies]:
                 file_path = os.path.join(path, f)
                 os.remove(file_path)
-                self.logger.info(f"Removed local file: {file_path}")
-        except Exception as e:
-            self.logger.error(f"Local cleanup error: {e}")
+                self.logger.info(f"Удален локальный файл: {file_path}", extra={"deleted_file": f})
+            self.logger.info(f"Локальная очистка завершена. Осталось копий: {max_copies}")
 
-    def cleanup_remote(self, ftp_client, remote_dir, max_copies):
-        """
-        Удаляет старые файлы на FTP-сервере, оставляя только max_copies.
-        Требует подключённый FTPClient.
-        """
-        try:
-            files = ftp_client.list_files(remote_dir)
-            # Сортируем по времени модификации (если доступно) или по имени
-            # Для простоты — по имени, если нет времени модификации
-            files_sorted = sorted(files)
-            for f in files_sorted[:-max_copies]:
-                remote_path = os.path.join(remote_dir, f)
-                ftp_client.delete_file(remote_path)
         except Exception as e:
-            self.logger.error(f"Remote cleanup error: {e}")
+            self.logger.error(f"Ошибка при локальной очистке: {e}", exc_info=True)
