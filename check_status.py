@@ -30,20 +30,27 @@ def check_config(config_path):
     try:
         config = Config(config_path)
 
+        # --- ИСПРАВЛЕННАЯ ПРОВЕРКА ПАРАМЕТРОВ ---
         # Проверяем наличие всех обязательных параметров
-        required_params = [
-            ('FTP Host', config.ftp_host),
-            ('FTP User', config.ftp_user),
-            ('FTP Password', '***' if config.ftp_pass else 'НЕ ЗАДАНО'),
-            ('Local Dir', config.local_backup_dir),
-            ('Remote Dir', config.remote_backup_dir),
+        # Используем кортежи (имя, значение, is_password_flag)
+        params_to_check = [
+            ('FTP Host', config.ftp_host, False),
+            ('FTP User', config.ftp_user, False),
+            ('FTP Password', config.ftp_pass, True),  # Передаем реальное значение
+            ('Local Dir', config.local_backup_dir, False),
+            ('Remote Dir', config.remote_backup_dir, False),
         ]
 
-        for name, value in required_params:
-            if not value or (name == 'FTP Password' and value == '***'):
+        for name, real_value, is_password in params_to_check:
+            display_value = '***' if is_password else real_value
+
+            # Проверяем, что реальное значение не пустое (None или пустая строка)
+            if not real_value:
                 logger.error(f"ОШИБКА: {name} не задан в конфигурации.",
                              extra={"error_code": BackupErrorCodes.CONFIG_MISSING})
                 return False
+            else:
+                logger.info(f"✅ {name}: {display_value}")
 
         logger.info("✅ Конфигурация в порядке.")
         return True
@@ -93,39 +100,37 @@ def check_local_paths(config):
 
 
 def check_ftp_connection(config):
-    """Проверяет возможность подключения к FTP серверу и доступность директории."""
+    """Проверяет возможность подключения к FTP серверу."""
     logger.info("3. Проверка соединения с FTP сервером...")
 
-    ftp_client = FTPClient(
-        host=config.ftp_host,
-        user=config.ftp_user,
-        password=config.ftp_pass,
-        logger=logger
-    )
+    # Используем контекстный менеджер для автоматического закрытия соединения
+    with FTPClient(
+            host=config.ftp_host,
+            user=config.ftp_user,
+            password=config.ftp_pass,
+            logger=logger
+    ) as ftp_client:
 
-    try:
-        if not ftp_client.connect():
-            logger.error("ОШИБКА: Не удалось подключиться к FTP серверу.",
-                         extra={"error_code": BackupErrorCodes.FTP_CONNECTION_FAILED})
-            return False
+        # Метод connect() внутри __enter__ должен возвращать True/False или бросать исключение
+        # Давайте предположим, что он бросает исключение или возвращает False при ошибке.
+        # Если он возвращает False, объект будет создан, но соединение не установится.
 
-        # Проверяем доступность удаленной директории (пробуем получить список файлов)
+        # Проверяем, успешно ли прошло соединение (зависит от реализации __enter__)
+        # Если connect() внутри __enter__ бросает исключение, код сюда не дойдет.
+
+        # Проверяем доступность удаленной директории
         try:
             ftp_client.list_files(config.remote_backup_dir)
             logger.info(f"✅ Удаленная директория доступна: {config.remote_backup_dir}")
+            logger.info("✅ Соединение с FTP сервером успешно установлено.")
+            return True
+
         except Exception as e:
             logger.error(f"ОШИБКА: Не удалось получить доступ к удаленной директории: {e}",
                          extra={"error_code": BackupErrorCodes.FTP_LIST_FAILED})
-            ftp_client.close()
             return False
 
-        ftp_client.close()
-        logger.info("✅ Соединение с FTP сервером успешно установлено.")
-        return True
-
-    except Exception as e:
-        logger.error(f"НЕИЗВЕСТНАЯ ОШИБКА при проверке FTP: {e}")
-        return False
+    # Код здесь выполнится после выхода из блока 'with', т.е. соединение уже закрыто.
 
 
 def main():

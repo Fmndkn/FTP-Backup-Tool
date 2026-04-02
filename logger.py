@@ -5,11 +5,8 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 try:
-    # Для форматирования логов в JSON
     import jsonlogger
 except ImportError:
-    # Если библиотека не установлена, используем стандартный формат
-    # (это позволит скрипту запуститься, но без JSON)
     jsonlogger = None
 
 
@@ -24,22 +21,34 @@ def _get_json_formatter():
     return None
 
 
-def setup_logger(name, log_file_path, level=logging.INFO):
+def setup_logger(name, log_dir, level=logging.INFO):
     """
-    Настраивает логгер с двумя хендлерами:
-    1. RotatingFileHandler с форматом JSON.
-    2. StreamHandler (stdout) со стандартным форматом.
+    Настраивает логгер с двумя хендлерами.
+
+    Args:
+        name (str): Имя логгера.
+        log_dir (str): Путь к директории, где будут храниться лог-файлы.
+        level: Уровень логирования (по умолчанию INFO).
+
+    Returns:
+        logging.Logger: Настроенный объект логгера.
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    # Предотвращаем добавление дублирующих хендлеров при повторном вызове
+    # Предотвращаем добавление дублирующих хендлеров
     if logger.handlers:
         return logger
 
-    # 1. Хендлер для записи в файл (JSON + Ротация)
-    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    # 1. Формируем полный путь к файлу лога внутри указанной папки
+    if not log_dir:
+        # Если путь не задан, используем текущую директорию (для отладки)
+        log_dir = os.getcwd()
 
+    os.makedirs(log_dir, exist_ok=True)
+    log_file_path = os.path.join(log_dir, 'backup.log')
+
+    # 2. Хендлер для записи в файл (JSON + Ротация)
     file_handler = RotatingFileHandler(
         filename=log_file_path,
         maxBytes=5 * 1024 * 1024,  # 5 МБ
@@ -50,14 +59,12 @@ def setup_logger(name, log_file_path, level=logging.INFO):
     json_formatter = _get_json_formatter()
     if json_formatter:
         file_handler.setFormatter(json_formatter)
-        # Добавляем поле 'service' для удобства фильтрации во внешних системах
         file_handler.addFilter(lambda record: setattr(record, 'service', 'ftp_backup_tool'))
     else:
-        # Если jsonlogger нет, используем стандартный формат
         std_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(std_formatter)
 
-    # 2. Хендлер для вывода в консоль (Стандартный формат)
+    # 3. Хендлер для вывода в консоль (Стандартный формат)
     console_handler = logging.StreamHandler(sys.stdout)
     console_formatter = logging.Formatter('%(asctime)s - %(levelname)-8s - %(message)s')
     console_handler.setFormatter(console_formatter)
